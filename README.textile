@@ -1,0 +1,5 @@
+h2. How to use
+
+@./nrk-downloader.py http://tv.nrk.no/serie/dagsrevyen/nnfa03100712/07-10-2012@
+
+
