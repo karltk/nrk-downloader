@@ -2,4 +2,11 @@ h2. How to use
 
 @./nrk-downloader.py http://tv.nrk.no/serie/dagsrevyen/nnfa03100712/07-10-2012@
 
+h2. Requirements
+
+You need the following:
+
+* @avconv@ (from the Debian @libav-tools@ package)
+
+
 
