@@ -9,6 +9,7 @@ import os
 import re
 import sys
 import json
+import shutil
 import urllib2
 import urlparse
 from urllib import urlencode
@@ -25,7 +26,7 @@ class ProgressBar:
   def _determine_width(self):
     self._draw = True
     if sys.stdout.isatty():
-      try:  
+      try:
         rows, columns = os.popen('stty size', 'r').read().split()
         self._columns = int(columns) - 2
       except:
@@ -83,46 +84,78 @@ def parse_alternatives(manifest):
   return alternatives
 
 
-def count_chunks(index):
-  count = 0
-  for x in index.split("\n"):
-    if not x.startswith("#"):
-      count += 1
-  return count
+def restart_fetch_and_merge_stream_data(index, fn):
+  downloaded_size = os.stat(fn).st_size
+  log_in = open(fn + ".log")
+  sz = 0
+  lines = log_in.readlines()
+  log_in.close()
+  for x in lines:
+    sz += int(x)
+  if sz > downloaded_size:
+    print "Re-downloading from scratch"
+    fetch_and_merge_stream_data(index, fn)
+  else:
+    print "Continuing from", sz
+    data_out = open(fn, "r+")
+    data_out.seek(sz)
+    if data_out.tell() != sz:
+      data_out.close()
+      print "Failed to wind file; re-downloading from scratch"
+      fetch_and_merge_stream_data(index, fn)
+      return
+    log_out = open(fn + ".log", "a+")
+    do_fetch_and_merge_data(index[len(lines):], data_out, log_out)
 
 def fetch_and_merge_stream_data(index, fn):
 
-  ous = open(fn, "wb")
-  pb = ProgressBar(count_chunks(index))
+  data_out = open(fn, "wb")
+  log_out = open(fn + ".log", "w")
 
-  cursor_at = 0
+  do_fetch_and_merge_data(index, data_out, log_out)
+
+def do_fetch_and_merge_data(index, data_out, log_out):
+  pb = ProgressBar(len(index))
+
   pos = 0
-
   pb.update(0)
 
-  for x in index.split("\n"):
-    if x.startswith("#"):
-      continue
-    if x.strip() is "":
-      continue
-
-    ous.write(slurp(x))
+  for x in index:
+    buf = slurp(x)
+    data_out.write(buf)
+    data_out.flush()
+    log_out.write(str(len(buf)) + "\n")
+    log_out.flush()
     pos += 1
     pb.update(pos)
 
-  ous.close()
+  data_out.close()
+  log_out.close()
+
+def sanitize_index(index):
+  r = []
+  for x in index.split("\n"):
+    if x.startswith("#"):
+      continue
+    z = x.strip()
+    if z is "":
+      continue
+    r.append(z)
+  return r
 
 def guess_base_filename(url):
   o = urlparse.urlparse(url)
   return o.path.strip("/").replace("/", "_")
 
-def remux_stream(tmp_fn, fn):
-  exe = None
-  for dir in sys.path:
+def find_avconv():
+  for dir in os.environ["PATH"].split(os.pathsep):
     path = os.path.join(dir, "avconv")
     if os.path.isfile(path) and os.access(path, os.X_OK):
-      exe = path
-      break
+      return path
+  return None
+
+def remux_stream(tmp_fn, fn):
+  exe = find_avconv()
   if exe:
     os.system(exe + " -i %s -acodec copy -vcodec copy %s" % (tmp_fn, fn))
   else:
@@ -147,12 +180,15 @@ def main():
       best = max(x, best)
     best = alternatives[best]
 
-    index = slurp(best)
-    fetch_and_merge_stream_data(index, temp_fn)
+    index = sanitize_index(slurp(best))
+    if os.path.isfile(temp_fn):
+      restart_fetch_and_merge_stream_data(index, temp_fn)
+    else:
+      fetch_and_merge_stream_data(index, temp_fn)
 
     remux_stream(temp_fn, fn)
     os.unlink(temp_fn)
     print fn
-    
+
 if __name__ == '__main__':
   main()
