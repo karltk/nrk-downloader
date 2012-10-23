@@ -148,8 +148,11 @@ def guess_base_filename(url):
   return o.path.strip("/").replace("/", "_")
 
 def find_avconv():
+  return find_exec("avconv") or find_exec("ffmpeg")
+
+def find_exec(name):
   for dir in os.environ["PATH"].split(os.pathsep):
-    path = os.path.join(dir, "avconv")
+    path = os.path.join(dir, name)
     if os.path.isfile(path) and os.access(path, os.X_OK):
       return path
   return None
