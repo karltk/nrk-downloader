@@ -60,6 +60,7 @@ class ProgressBar:
 
 
 def slurp(url, params={}, headers={}):
+  #print >>sys.stderr, url
   params = urlencode(params, doseq=True)
   request = urllib2.Request(url)
   for (k,v) in headers.iteritems():
@@ -171,7 +172,7 @@ def main():
   temp_fn = base + ".m4v.download"
   fn = base + ".m4v"
 
-  doc = slurp(url, headers={'Cookie' : 'NRK_PROGRAMPLAYER_SETTINGS=devicetype=desktop&preferred-player=hls&max-data-rate=2250;' })  
+  doc = slurp(url, headers={'Cookie' : 'NRK_PLAYER_SETTINGS_TV=devicetype=desktop&preferred-player-odm=hls&preferred-player-live=flash&max-data-rate=3500;' })  
   m = DATA_MEDIA_REGEX.search(doc)
   if m is not None:
 
