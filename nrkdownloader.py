@@ -165,9 +165,7 @@ def remux_stream(tmp_fn, fn):
   else:
     shutil.copyfile(tmp_fn, fn)
 
-def main():
-
-  url = sys.argv[1]
+def download(url):
   base = guess_base_filename(url)
   temp_fn = base + ".m4v.download"
   fn = base + ".m4v"
@@ -193,6 +191,10 @@ def main():
     remux_stream(temp_fn, fn)
     os.unlink(temp_fn)
     print fn
+
+def main():
+  url = sys.argv[1]
+  download(url)
 
 if __name__ == '__main__':
   main()
