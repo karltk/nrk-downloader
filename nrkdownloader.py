@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+# -*- coding: utf-8 -*-
 #
 # Downloader for the tv.nrk.no
 #
@@ -13,9 +14,11 @@ import shutil
 import urllib2
 import urlparse
 from urllib import urlencode
+from bs4 import BeautifulSoup
 
 DATA_MEDIA_REGEX=re.compile('data-media="([^"]+)"')
 BANDWIDTH_REGEX=re.compile('BANDWIDTH=([0-9]+)')
+CLIP_ID_REGEX=re.compile('^[a-z]{4}[0-9]{8}$')
 
 class ProgressBar:
   def __init__(self, max_pos):
@@ -165,12 +168,37 @@ def remux_stream(tmp_fn, fn):
   else:
     shutil.copyfile(tmp_fn, fn)
 
+def extract_id(url):
+  for x in url.split("/"):
+    if CLIP_ID_REGEX.match(x):
+      return x
+  return None
+
+def download_subtitles(url, filename):
+  data = slurp(url)
+  srt = convert_to_srt(data)
+  with open(filename, "w") as out:
+    out.write(srt)
+
+def convert_to_srt(text):
+  soup = BeautifulSoup(text)
+  counter = 1
+  r = []
+  for p in soup.find_all("p"):
+    r.append("")
+    r.append(str(counter))
+    r.append(p["begin"] + " --> " + p["dur"])
+    r.append(p.contents[0].encode("UTF-8"))
+    counter += 1
+
+  return "\n".join(r)
+
 def download(url):
   base = guess_base_filename(url)
   temp_fn = base + ".m4v.download"
   fn = base + ".m4v"
 
-  doc = slurp(url, headers={'Cookie' : 'NRK_PLAYER_SETTINGS_TV=devicetype=desktop&preferred-player-odm=hls&preferred-player-live=flash&max-data-rate=3500;' })  
+  doc = slurp(url, headers={'Cookie' : 'NRK_PLAYER_SETTINGS_TV=devicetype=desktop&preferred-player-odm=hls&preferred-player-live=flash&max-data-rate=3500;' })
   m = DATA_MEDIA_REGEX.search(doc)
   if m is not None:
 
@@ -183,10 +211,11 @@ def download(url):
     best = alternatives[best]
 
     index = sanitize_index(slurp(best))
-    if os.path.isfile(temp_fn):
-      restart_fetch_and_merge_stream_data(index, temp_fn)
-    else:
-      fetch_and_merge_stream_data(index, temp_fn)
+#    if os.path.isfile(temp_fn):
+#      restart_fetch_and_merge_stream_data(index, temp_fn)
+#    else:
+    download_subtitles("http://tv.nrk.no/programsubtitles/" + extract_id(url), base + ".srt")
+    fetch_and_merge_stream_data(index, temp_fn)
 
     remux_stream(temp_fn, fn)
     os.unlink(temp_fn)
