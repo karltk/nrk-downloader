@@ -15,6 +15,7 @@ import urllib2
 import urlparse
 from urllib import urlencode
 from bs4 import BeautifulSoup
+import bs4
 
 DATA_MEDIA_REGEX=re.compile('data-media="([^"]+)"')
 BANDWIDTH_REGEX=re.compile('BANDWIDTH=([0-9]+)')
@@ -188,7 +189,16 @@ def convert_to_srt(text):
     r.append("")
     r.append(str(counter))
     r.append(p["begin"] + " --> " + p["dur"])
-    r.append(p.contents[0].encode("UTF-8"))
+    for e in p.contents:
+      if type(e) is bs4.element.Tag:
+        if len(e.contents) > 0:
+          x = e.contents[0].encode("UTF-8").strip()
+          if len(x) > 0:
+            r.append(x)
+      else:
+        x = e.encode("UTF-8").strip()
+        if len(x) > 0:
+          r.append(x)
     counter += 1
 
   return "\n".join(r)
@@ -223,7 +233,10 @@ def download(url):
 
 def main():
   url = sys.argv[1]
-  download(url)
+  if url.startswith("http"):
+    download(url)
+  else:
+    download_subtitles("http://tv.nrk.no/programsubtitles/" + url, url + ".srt")
 
 if __name__ == '__main__':
   main()
